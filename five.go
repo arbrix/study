@@ -1,7 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"sync/atomic"
+)
 
+//findEquation([]int{1,2,3,4,5,6,7,8,9}, 100, "")
 func findEquation(numbers []int, sum int, resStr string) string {
 	num := numbers[0]
 	//fmt.Printf("current number: %d, check sum: %d, result string: %s, set: %v\n", num, sum, resStr, numbers)
@@ -52,16 +56,13 @@ func findEquation(numbers []int, sum int, resStr string) string {
 	return res
 }
 
+//findEquation2(1, 98765432, 100, "")
 func findEquation2(num, set, sum int, equation string) string {
 	if set == 0 {
 		if num == sum {
 			equation += fmt.Sprintf("%+d", num) + "\n"
 			return equation
 		}
-		return ""
-	}
-	if num > 123456789 {
-		fmt.Println("to big number: ", num)
 		return ""
 	}
 	var s, r string
@@ -97,6 +98,55 @@ func findEquation2(num, set, sum int, equation string) string {
 	return r
 }
 
+func concurrentSearch(num, set, sum int, eq string, res chan <- string, cnt *int32) {
+	atomic.AddInt32(cnt, 1)
+	defer atomic.AddInt32(cnt, -1)
+	if set == 0 {
+		if num == sum {
+			eq += fmt.Sprintf("%+d", num)
+			res <- eq
+		}
+		return
+	}
+	//plus
+	if "" == eq {
+		go concurrentSearch(set%10, set/10, sum-num, fmt.Sprintf("%d", num), res, cnt)
+	} else {
+		go concurrentSearch(set%10, set/10, sum-num, eq + fmt.Sprintf("%+d", num), res, cnt)
+	}
+	//minus
+	if "" == eq {
+		go concurrentSearch(-set%10, set/10, sum-num, fmt.Sprintf("%d", num), res, cnt)
+	} else {
+		go concurrentSearch(-set % 10, set / 10, sum - num, eq + fmt.Sprintf("%+d", num), res, cnt)
+	}
+	//concat
+	concat := num*10
+	if concat > 0 {
+		concat += set%10
+	} else {
+		concat -= set%10
+	}
+	go concurrentSearch(concat, set/10, sum, eq, res, cnt)
+}
+
+//findEquation3(987654321, 100)
+func findEquation3(set, sum int,) string {
+	var cnt int32
+	eqChan := make(chan string)
+	go concurrentSearch(set%10, set/10, sum, "", eqChan, &cnt)
+	res := <- eqChan
+	for atomic.LoadInt32(&cnt) > 0 {
+		select {
+		case s := <- eqChan:
+			res += "\n" + s
+		default:
+			continue
+		}
+	}
+	return res
+}
+
 func main() {
-	fmt.Print("result: \n", findEquation2(1, 98765432, 100, ""))
+	fmt.Println("result: \n", findEquation3(987654321, 100))
 }

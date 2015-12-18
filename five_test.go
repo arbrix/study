@@ -15,3 +15,9 @@ func BenchmarkFindEquation2(b *testing.B) {
 		findEquation2(1, 98765432, 100, "")
 	}
 }
+
+func BenchmarkFindEquation3(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		findEquation3(987654321, 100)
+	}
+}
